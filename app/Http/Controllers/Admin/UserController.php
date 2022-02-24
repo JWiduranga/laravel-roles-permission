@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-class RoleController extends Controller
+class UserController extends Controller
 {
     public function __construct()
     {
@@ -27,12 +27,12 @@ class RoleController extends Controller
     {
         $user = Auth::user();
         if ($user->hasRole('super-admin')) {
-            $roles = Role::all();
+            $users = User::latest()->paginate(10);
         } else {
-            $roles = Role::whereNotIn('name', ['super-admin'])->get();
+            $users = User::whereNotIn('id', [1])->latest()->paginate(10);
         }
 
-        return view('admin.role.index', compact('roles'));
+        return view('admin.user.index', compact('users'));
     }
 
     /**
@@ -44,12 +44,11 @@ class RoleController extends Controller
     {
         $user = Auth::user();
         if ($user->hasRole('super-admin')) {
-            $permissions = Permission::get()->pluck('name', 'name');
+            $roles = Role::get()->pluck('name', 'name');
         } else {
-            $permissions = Permission::whereNotIn('name', ['manage-permission'])->get()->pluck('name', 'name');
+            $roles = Role::whereNotIn('name', ['super-admin'])->get()->pluck('name', 'name');
         }
-
-        return view('admin.role.create', compact('permissions'));
+        return view('admin.user.create', compact('roles'));
     }
 
     /**
@@ -61,14 +60,16 @@ class RoleController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => ['required', 'string', 'unique:roles', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users', 'max:255'],
+            'password' => ['required', 'max:255'],
         ]);
 
         DB::beginTransaction();
         try {
-            $role = Role::create($request->except('permission'));
-            $permissions = !empty($request->permission) ? $request->permission : [];
-            $role->givePermissionTo($permissions);
+            $user = User::create($request->all());
+            $roles = !empty($request->roles) ? $request->roles : [];
+            $user->assignRole($roles);
             DB::commit();
             Alert::toast('Record insert successfully', 'success');
         } catch (\Exception $exception) {
@@ -76,7 +77,7 @@ class RoleController extends Controller
             Alert::toast('Something went wrong please try again', 'error');
         }
 
-        return redirect()->route('roles.create');
+        return redirect()->route('users.create');
     }
 
     /**
@@ -96,16 +97,16 @@ class RoleController extends Controller
      * @param int $id
      * @return \Illuminate\Http\Response
      */
-    public function edit(Role $role)
+    public function edit(User $user)
     {
-        $user = Auth::user();
-        if ($user->hasRole('super-admin')) {
-            $permissions = Permission::get()->pluck('name', 'name');
+        $auth = Auth::user();
+        if ($auth->hasRole('super-admin')) {
+            $roles = Role::get()->pluck('name', 'name');
         } else {
-            $permissions = Permission::whereNotIn('name', ['manage-permission'])->get()->pluck('name', 'name');
+            $roles = Role::whereNotIn('name', ['super-admin'])->get()->pluck('name', 'name');
         }
 
-        return view('admin.role.update')->with(['role' => $role, 'permissions' => $permissions]);
+        return view('admin.user.update', compact('user', 'roles'));
     }
 
     /**
@@ -118,24 +119,24 @@ class RoleController extends Controller
     public function update(Request $request, int $id)
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($id)],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($id)],
+            'password' => ['nullable', 'max:255'],
         ]);
-
         DB::beginTransaction();
         try {
-            $role = Role::findOrFail($id);
-            $role->update($request->except('permission'));
-            $permissions = !empty($request->permission) ? $request->permission : [];
-            $role->syncPermissions($permissions);
+            $user = User::findOrFail($id);
+            $user->update($request->all());
+            $roles = !empty($request->roles) ? $request->roles : [];
+            $user->syncRoles($roles);
             DB::commit();
-
             Alert::toast('Record update successfully', 'success');
-            $redirect = redirect()->route('roles.index');
+            $redirect = redirect()->route('users.index');
         } catch (\Exception $exception) {
             DB::rollback();
 
             Alert::toast('Something went wrong please try again', 'error');
-            $redirect = redirect('roles/' . $id . '/edit');
+            $redirect = redirect('users/' . $id . '/edit');
         }
 
         return $redirect;
