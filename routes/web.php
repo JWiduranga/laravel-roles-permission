@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,10 +21,16 @@ Route::get('/', function () {
 });
 
 Auth::routes();
-
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 Route::group(['middleware' => ['auth']], function () {
-    Route::resource('permissions', PermissionController::class);
-    Route::resource('roles', RoleController::class);
+    Route::resource('permissions', PermissionController::class)->only([
+        'index', 'create', 'store', 'edit', 'update', 'destroy'
+    ]);
+    Route::resource('roles', RoleController::class)->only([
+        'index', 'create', 'store', 'edit', 'update', 'destroy'
+    ]);
+    Route::resource('users', UserController::class)->only([
+        'index', 'create', 'store', 'edit', 'update', 'destroy'
+    ]);
 });
 
