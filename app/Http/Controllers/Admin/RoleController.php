@@ -115,7 +115,7 @@ class RoleController extends Controller
      * @param int $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, int $id)
+    public function update(Request $request, $id)
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($id)],
